@@ -1,0 +1,103 @@
+      //Call from post_save of an asset in the root folder of items that need to be reset
+      /// <summary>
+      /// Used to reset links to relative files from a clone or copy of section or folder
+      /// Requires GetRecursiveFolderList and FixRelativeLinks
+      /// </summary>
+      /// <param name="asset">Asset in the root folder of the section to relink</param>
+      public static void ResetLinks(Asset asset)
+      {
+          Dictionary<string, string> filList = new Dictionary<string, string>();
+          Dictionary<string, string> folList = new Dictionary<string, string>();
+          AssetParams aParams = new AssetParams();
+          aParams.FilterStatus = Util.MakeList("Draft"); //Draft only to prevent mistakes later
+          aParams.Excludes = Util.MakeList(asset.Label);
+
+          Asset curFolder = Asset.Load(asset.FolderId);
+          folList.Add(curFolder.Id.ToString(), curFolder.Label);
+          folList = Utility.GetRecursiveFolderList(curFolder, folList);
+
+          foreach (KeyValuePair<string, string> fol in folList)
+          {
+              Asset folderAsset = Asset.Load(fol.Key);
+              if (folderAsset.IsLoaded)
+              {
+                  List<Asset> files = folderAsset.GetFileList(aParams);
+                  foreach (Asset file in files)
+                  {
+                      FixRelativeLinks(file, curFolder);
+                  }
+              }
+          }
+        
+      }
+
+      /// <summary>
+      /// Builds a recursive file list
+      /// </summary>
+      /// <param name="sFolder">Starting folder asset</param>
+      /// <param name="folList">Used to pass in a current file list for recursive building</param>
+      /// <returns>Returns the updated folder list</returns>
+      public static Dictionary<string, string> GetRecursiveFolderList(Asset sFolder, Dictionary<string, string> folList)
+      {
+          List<Asset> folders = sFolder.GetFolderList();
+          foreach (Asset folder in folders)
+          {
+              folList.Add(folder.Id.ToString(), folder.Label);
+              GetRecursiveFolderList(folder, folList);
+
+          }
+          return folList;
+
+      }
+
+      /// <summary>
+      /// Adjusts internal links to the relative equivelent based on current folder and original folder
+      /// Only works if the source and destination are identical except the root or starting folder
+      /// </summary>
+      /// <param name="aContentDest">The link being updated</param>
+      /// <param name="rootFolder">the root folder</param>
+      public static void FixRelativeLinks(Asset aContentDest, Asset rootFolder)
+      {
+          string szCurrId = aContentDest.Id.ToString();
+          int fcount = rootFolder.AssetPath.Count;
+          string fpath = rootFolder.AssetPath.ToString();
+
+          foreach (KeyValuePair<string, string> kvpData in aContentDest.GetContent())
+          {
+              if (kvpData.Key.StartsWith("upload#"))
+              {
+
+                  int nFixLinkFlag = 0;
+                  Asset aLinkedItem = Asset.LoadDirect(kvpData.Value);
+                  string szSourcePath = aLinkedItem.AssetPath.ToString();
+                  //split the path 
+                  string replacePath = "";
+
+                  //if the folder count is less than the root then the asset won't exist
+                  if (aLinkedItem.AssetPath.Count >= fcount && aLinkedItem.AssetPath[1] != "_Global")
+                  {
+                      for (int i = 0; i < fcount; i++)
+                      {
+                          replacePath = replacePath + "/" + aLinkedItem.AssetPath[i];
+                      }
+
+                      string szDestinationPath = szSourcePath.Replace(replacePath, fpath);
+
+                      if (Asset.LoadDirect(szDestinationPath).IsLoaded && !string.Equals(szSourcePath, szDestinationPath))
+                      {
+                          nFixLinkFlag = 1;
+                      }
+
+                      if (int.Equals(nFixLinkFlag, 1))
+                      {
+                          Asset aCurrId = Asset.LoadDirect(szCurrId);
+                          aCurrId.DeleteContentField(kvpData.Key);
+                          Asset aItemDest = Asset.LoadDirect(szDestinationPath);
+
+                          aCurrId.SaveContentField(kvpData.Key, aItemDest.GetLink(LinkType.Internal));
+
+                      }
+                  }
+              }
+          }
+      }
