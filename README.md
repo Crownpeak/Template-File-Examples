@@ -1,7 +1,7 @@
 # Template-File-Examples
 Sample template file code
 - Utilities
-
+- JS and CSS Minifier
 /*!
 // ------------------------------------------------------------------------
 // (C) CROWNPEAK TECHNOLOGY.
