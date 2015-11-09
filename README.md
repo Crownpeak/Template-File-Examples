@@ -1,5 +1,7 @@
 # Template-File-Examples
-Sample template file code for common tasks
+Sample template file code
+- Utilities
+
 /*!
 // ------------------------------------------------------------------------
 // (C) CROWNPEAK TECHNOLOGY.
